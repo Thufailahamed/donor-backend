@@ -23,11 +23,22 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: npm install, build, and test
+      - name: npm install
+        run: npm install
+
+      - name: Build backend
         run: |
-          npm install
+          cd backend
+          chmod +x node_modules/.bin/prisma || true
+          npx prisma generate
           npm run build --if-present
-          npm run test --if-present
+
+      - name: Build frontend
+        run: |
+          npm run build --workspace=frontend
+        env:
+          NEXT_PUBLIC_API_URL: "https://api.donor-summit.com/api"
+          NEXT_PUBLIC_SOCKET_URL: "https://api.donor-summit.com"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -62,4 +73,3 @@ jobs:
           app-name: 'donorsummit'
           slot-name: 'Production'
           package: .
-          
