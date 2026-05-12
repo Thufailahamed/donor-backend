@@ -24,19 +24,19 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: npm install and build backend
+      - name: npm install
+        run: npm install
+
+      - name: Build backend
         run: |
           cd backend
-          npm install
           chmod +x node_modules/.bin/prisma || true
           npx prisma generate
           npm run build --if-present
 
-      - name: npm install and build frontend
+      - name: Build frontend
         run: |
-          cd frontend
-          npm install
-          npm run build
+          npm run build --workspace=frontend
         env:
           NEXT_PUBLIC_API_URL: "https://api.donor-summit.com/api"
           NEXT_PUBLIC_SOCKET_URL: "https://api.donor-summit.com"
