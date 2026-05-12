@@ -1,0 +1,77 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy Node.js app to Azure Web App - donorsummit
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js version
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+
+      - name: npm install and build backend
+        run: |
+          cd backend
+          npm install
+          chmod +x node_modules/.bin/prisma || true
+          npx prisma generate
+          npm run build --if-present
+
+      - name: npm install and build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+        env:
+          NEXT_PUBLIC_API_URL: "https://api.donor-summit.com/api"
+          NEXT_PUBLIC_SOCKET_URL: "https://api.donor-summit.com"
+
+      - name: Prepare deployment package
+        run: |
+          mkdir deploy
+          cp -r backend/dist deploy/dist
+          cp backend/package.json deploy/
+          cp backend/package-lock.json deploy/
+          cp -r backend/prisma deploy/prisma || true
+
+      - name: Upload Backend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dist
+          path: deploy/
+
+      - name: Upload Frontend Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/out || frontend/.next
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_1C2C29712335463789BC1A87B21DA485 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_92EB0C8859F345F68608193A5CE05430 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_62AC482E47FA4F489B704B170B635B82 }}
+
+      - name: 'Deploy to Azure Web App'
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'donorsummit'
+          slot-name: 'Production'
+          package: deploy

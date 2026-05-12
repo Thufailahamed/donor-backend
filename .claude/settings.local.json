@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(timeout 8 npx ts-node-dev --respawn --transpile-only src/server.ts)",
+      "Bash(npm run *)",
+      "Bash(findstr /i \"recharts\")",
+      "Bash(npx prisma *)",
+      "Bash(tasklist /fi \"imagename eq node.exe\" /v)",
+      "PowerShell(Get-Process *)",
+      "Bash(npm outdated *)",
+      "Bash(Get-ChildItem C:\\\\Users\\\\user\\\\Downloads\\\\Donor Summit\\\\backend\\\\src\\\\lib *)",
+      "Bash(npm install *)",
+      "Bash(Get-Process -Name node -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object Id, ProcessName, Path)",
+      "Bash(Format-Table -AutoSize)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx next *)"
+    ]
+  }
+}
