@@ -1,0 +1,345 @@
+// Prisma Schema for IDES - Interactive Digital Engagement System
+// Database: SQLite (local testing) — switch to sqlserver for Azure production
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "linux-musl", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// USER MODEL
+// ============================================================
+model User {
+  id        String   @id @default(uuid())
+  email     String?  @unique
+  password  String?
+  name      String
+  role      String   @default("PARTICIPANT")
+  avatarUrl String?
+  isGuest   Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  bio       String?  @db.NVarChar(Max)
+  organization String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  questions       Question[]
+  feedback        Feedback[]
+  voiceNotes      VoiceNote[]
+  upvotes         QuestionUpvote[]
+  notifications   Notification[]
+  speakerSessions SessionSpeaker[]
+  pollVotes       PollVote[]
+  announcements   Announcement[]
+
+  @@map("users")
+}
+
+
+
+// ============================================================
+// SESSION MODEL
+// ============================================================
+model Session {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  objectives  String?
+  track       String?
+  location    String?
+  startTime   DateTime
+  endTime     DateTime
+  isActive    Boolean  @default(false)
+  order       Int      @default(0)
+  day         Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  speakers      SessionSpeaker[]
+  questions     Question[]
+  feedback      Feedback[]
+  voiceNotes    VoiceNote[]
+  content       Content[]
+  polls         Poll[]
+  announcements Announcement[]
+
+  @@index([day, order])
+  @@index([startTime])
+  @@map("sessions")
+}
+
+// ============================================================
+// SESSION-SPEAKER JOIN TABLE
+// ============================================================
+model SessionSpeaker {
+  id        String @id @default(uuid())
+  sessionId String
+  speakerId String
+  role      String @default("Speaker")
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  speaker User    @relation(fields: [speakerId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, speakerId])
+  @@map("session_speakers")
+}
+
+// ============================================================
+// QUESTION MODEL
+// ============================================================
+model Question {
+  id        String         @id @default(uuid())
+  text      String
+  status    String         @default("PENDING")
+  sessionId String
+  userId    String
+  parentId  String?
+  isPinned        Boolean        @default(false)
+  isFlagged       Boolean        @default(false)
+  isSimilarMerge  Boolean        @default(false)
+  isAdminHighlighted Boolean     @default(false)
+  moderatorNotes  String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  session Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent  Question?        @relation("ThreadReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies Question[]       @relation("ThreadReplies")
+  upvotes QuestionUpvote[]
+
+  @@index([sessionId, status])
+  @@index([parentId])
+  @@index([createdAt])
+  @@map("questions")
+}
+
+
+
+// ============================================================
+// QUESTION UPVOTE
+// ============================================================
+model QuestionUpvote {
+  id         String   @id @default(uuid())
+  questionId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([questionId, userId])
+  @@index([questionId])
+  @@map("question_upvotes")
+}
+
+// ============================================================
+// FEEDBACK MODEL
+// ============================================================
+model Feedback {
+  id        String   @id @default(uuid())
+  rating    Int
+  text      String?
+  type      String   @default("session")
+  sessionId String?
+  userId    String
+  createdAt DateTime @default(now())
+
+  session Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("feedback")
+}
+
+// ============================================================
+// VOICE NOTE MODEL
+// ============================================================
+model VoiceNote {
+  id         String   @id @default(uuid())
+  audioUrl   String
+  duration   Int
+  transcript String?
+  sessionId  String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("voice_notes")
+}
+
+// ============================================================
+// CONTENT MODEL
+// ============================================================
+model Content {
+  id        String   @id @default(uuid())
+  title     String
+  type      String
+  url       String?
+  body      String?
+  sessionId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("content")
+}
+
+// ============================================================
+// NOTIFICATION MODEL
+// ============================================================
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false)
+  userId    String
+  link      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// ============================================================
+// POLL MODELS
+// ============================================================
+model Poll {
+  id        String   @id @default(uuid())
+  question  String
+  isActive  Boolean  @default(false)
+  sessionId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  options PollOption[]
+  votes   PollVote[]
+
+  @@map("polls")
+}
+
+model PollOption {
+  id     String @id @default(uuid())
+  text   String
+  pollId String
+
+  poll      Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  userVotes PollVote[]
+
+  @@map("poll_options")
+}
+
+model PollVote {
+  id           String   @id @default(uuid())
+  pollOptionId String
+  pollId       String
+  userId       String
+  createdAt    DateTime @default(now())
+
+  pollOption PollOption @relation(fields: [pollOptionId], references: [id], onDelete: Cascade)
+  poll       Poll       @relation(fields: [pollId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId])
+  @@map("poll_votes")
+}
+
+// ============================================================
+// ANNOUNCEMENT MODEL
+// ============================================================
+model Announcement {
+  id        String   @id @default(uuid())
+  text      String
+  sessionId String
+  createdBy String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("announcements")
+}
+
+// ============================================================
+// ACCESS LOG MODEL
+// ============================================================
+model AccessLog {
+  id          String    @id @default(uuid())
+  userId      String?
+  name        String
+  role        String?
+  ipAddress   String?
+  userAgent   String?
+  deviceType  String?
+  action      String
+  loginAt     DateTime  @default(now())
+  logoutAt    DateTime?
+  sessionId   String?
+
+  @@index([userId, loginAt])
+  @@index([sessionId])
+  @@map("access_logs")
+}
+
+// ============================================================
+// ACTIVITY LOG MODEL
+// ============================================================
+model ActivityLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  userName    String
+  action      String
+  targetType  String?
+  targetId    String?
+  sessionId   String?
+  details     String?
+  createdAt   DateTime @default(now())
+
+  @@index([sessionId, createdAt])
+  @@index([userId])
+  @@map("activity_logs")
+}
+
+// ============================================================
+// MODERATOR ACTION LOG MODEL
+// ============================================================
+model ModeratorActionLog {
+  id             String   @id @default(uuid())
+  moderatorId    String
+  moderatorName  String
+  action         String
+  targetType     String?
+  targetId       String?
+  sessionId      String?
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  @@map("moderator_action_logs")
+}
+
+// ============================================================
+// FLAGGED CONTENT MODEL
+// ============================================================
+model FlaggedContent {
+  id          String    @id @default(uuid())
+  questionId  String
+  reason      String
+  severity    String    @default("MEDIUM")
+  isResolved  Boolean   @default(false)
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("flagged_content")
+}
